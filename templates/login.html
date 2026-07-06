@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Silent Voice - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #0b1a3a 0%, #1e3c72 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0px 10px 40px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #0b1a3a;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 5px rgba(37, 99, 235, 0.3);
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-login {
+            background: #2563eb;
+            color: white;
+        }
+        .btn-login:hover {
+            background: #1d4ed8;
+        }
+        .btn-register {
+            background: #10b981;
+            color: white;
+        }
+        .btn-register:hover {
+            background: #059669;
+        }
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+        }
+        .error {
+            background: #fee;
+            color: #c33;
+        }
+        .success {
+            background: #efe;
+            color: #3c3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Silent Voice</h1>
+        
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" placeholder="Enter username">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" placeholder="Enter password">
+        </div>
+
+        <div class="button-group">
+            <button class="btn-login" onclick="loginUser()">Login</button>
+            <button class="btn-register" onclick="registerUser()">Register</button>
+        </div>
+
+        <div id="message"></div>
+    </div>
+
+    <script>
+        async function loginUser() {
+            let username = document.getElementById("username").value;
+            let password = document.getElementById("password").value;
+
+            if (!username || !password) {
+                showMessage("Please enter username and password", "error");
+                return;
+            }
+
+            let response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            });
+
+            let data = await response.json();
+            if (data.success) {
+                showMessage("Login successful! Redirecting...", "success");
+                setTimeout(() => window.location.href = "/", 2000);
+            } else {
+                showMessage(data.message, "error");
+            }
+        }
+
+        async function registerUser() {
+            let username = document.getElementById("username").value;
+            let password = document.getElementById("password").value;
+
+            if (!username || !password) {
+                showMessage("Please enter username and password", "error");
+                return;
+            }
+
+            let response = await fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            });
+
+            let data = await response.json();
+            if (data.success) {
+                showMessage("Registration successful! You can now login.", "success");
+                document.getElementById("username").value = "";
+                document.getElementById("password").value = "";
+            } else {
+                showMessage(data.message, "error");
+            }
+        }
+
+        function showMessage(text, type) {
+            let msg = document.getElementById("message");
+            msg.textContent = text;
+            msg.className = type;
+            msg.style.display = "block";
+        }
+
+        document.getElementById("password").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") loginUser();
+        });
+    </script>
+</body>
+</html>

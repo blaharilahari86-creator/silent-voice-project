@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1>🌐 Translate Text</h1>
+
+<div class="card">
+    <textarea id="text" placeholder="Enter text to translate..." style="width:100%;height:180px;padding:15px;font-size:18px;"></textarea>
+    <br><br>
+    <label for="language">Translate to:</label>
+    <select id="language">
+        <option value="en">English</option>
+        <option value="hi">Hindi</option>
+        <option value="te">Telugu</option>
+        <option value="ta">Tamil</option>
+    </select>
+    <br><br>
+    <button onclick="translateText()">Translate</button>
+    <button onclick="speakText()">Speak</button>
+
+    <br><br>
+    <textarea id="output" readonly style="width:100%;height:140px;padding:15px;font-size:18px; background:#f0f0f0;"></textarea>
+</div>
+
+<script>
+async function translateText(){
+    let text = document.getElementById("text").value;
+    let language = document.getElementById("language").value;
+
+    if(!text.trim()){
+        alert("Enter text to translate.");
+        return;
+    }
+
+    let response = await fetch('/translate', {
+        method:'POST',
+        headers:{
+            'Content-Type':'application/json'
+        },
+        body:JSON.stringify({ text:text, language:language })
+    });
+
+    let data = await response.json();
+    document.getElementById("output").value = data.translated_text || "Translation Error";
+}
+
+async function speakText(){
+    let output = document.getElementById("output").value;
+    let language = document.getElementById("language").value;
+
+    if(!output.trim()){
+        await translateText();
+        output = document.getElementById("output").value;
+        if(!output.trim()) return;
+    }
+
+    let response = await fetch('/speak', {
+        method:'POST',
+        headers:{
+            'Content-Type':'application/json'
+        },
+        body:JSON.stringify({ text: output, language: language })
+    });
+    let data = await response.json();
+    let audio = new Audio(data.audio);
+    audio.play();
+}
+</script>
+
+{% endblock %}

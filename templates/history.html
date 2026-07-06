@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .history-timeline {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .timeline-date {
+        font-size: 14px;
+        font-weight: bold;
+        color: #0b1a3a;
+        margin-top: 25px;
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #e8f0f8;
+        border-left: 4px solid #0b1a3a;
+        border-radius: 4px;
+    }
+
+    .conversation-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 15px;
+        padding: 16px;
+        background: white;
+        border-radius: 8px;
+        border-left: 4px solid #66c2a5;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .conversation-item:hover {
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+        transform: translateX(2px);
+    }
+
+    .conversation-time {
+        font-size: 12px;
+        color: #556172;
+        min-width: 75px;
+        font-weight: 600;
+        margin-right: 15px;
+    }
+
+    .conversation-content {
+        flex: 1;
+        color: #323232;
+        word-wrap: break-word;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .entry-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-delete-entry {
+        background: #f35a5a;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .btn-delete-entry:hover {
+        background: #dc4747;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 50px 20px;
+        color: #7a7a7a;
+    }
+
+    .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+
+    .history-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+    }
+
+    .history-header h1 {
+        margin: 0;
+        font-size: 28px;
+    }
+
+    .history-count {
+        background: #0b1a3a;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    #sv-snackbar {
+        visibility: hidden;
+        min-width: 260px;
+        max-width: 420px;
+        background-color: #333;
+        color: #fff;
+        text-align: left;
+        border-radius: 8px;
+        padding: 14px 16px;
+        position: fixed;
+        right: 20px;
+        bottom: 30px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    #sv-snackbar.show {
+        visibility: visible;
+    }
+
+    #sv-snackbar button {
+        background: transparent;
+        color: #ffd;
+        border: 1px solid rgba(255,255,255,0.25);
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+</style>
+
+<div class="history-timeline">
+    <div class="history-header">
+        <div>
+            <h1>📜 Full Conversation History</h1>
+            <span class="history-count">{{ history|length }} entries</span>
+        </div>
+        <button onclick="clearAllHistory()" style="background:#0b1a3a;color:white;border:none;padding:10px 16px;border-radius:10px;cursor:pointer;">Clear All</button>
+    </div>
+
+    {% if history %}
+        {% set current_date = None %}
+        {% for entry in history %}
+            {% set entry_date = entry[3].split(' ')[0] if entry[3] else 'Unknown' %}
+            {% if entry_date != current_date %}
+                {% set current_date = entry_date %}
+                <div class="timeline-date">{{ current_date }}</div>
+            {% endif %}
+            <div class="conversation-item" data-entry-id="{{ entry[0] }}">
+                <div class="conversation-time">{{ entry[3].split(' ')[1] if entry[3] else '' }}</div>
+                <div class="conversation-content">{{ entry[2] }}</div>
+                <div class="entry-actions">
+                    <button class="btn-delete-entry" data-id="{{ entry[0] }}" type="button">Delete</button>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">🕒</div>
+            <div>No history found yet.</div>
+            <div>Perform a gesture or text action to start saving conversation history.</div>
+        </div>
+    {% endif %}
+</div>
+
+<div id="sv-snackbar" role="status" aria-live="polite">
+    <div id="sv-snackbar-text">Entry deleted</div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <button id="sv-undo">Undo</button>
+        <button id="sv-close">Close</button>
+    </div>
+</div>
+
+<script>
+    let lastDeleted = null;
+    function showSnackbar(text) {
+        const sn = document.getElementById('sv-snackbar');
+        document.getElementById('sv-snackbar-text').textContent = text;
+        sn.classList.add('show');
+        clearTimeout(sn._hideTimer);
+        sn._hideTimer = setTimeout(() => {
+            sn.classList.remove('show');
+            lastDeleted = null;
+        }, 6000);
+    }
+
+    document.getElementById('sv-undo').addEventListener('click', async () => {
+        if (!lastDeleted) return;
+        try {
+            const res = await fetch('/restore-last', { method: 'POST' });
+            const j = await res.json();
+            if (res.ok && j.restored) {
+                document.getElementById('sv-snackbar').classList.remove('show');
+                lastDeleted = null;
+                location.reload();
+            } else {
+                alert('Undo failed');
+            }
+        } catch (err) {
+            alert('Undo request failed: ' + err.message);
+        }
+    });
+
+    document.getElementById('sv-close').addEventListener('click', () => {
+        const sn = document.getElementById('sv-snackbar');
+        sn.classList.remove('show');
+        lastDeleted = null;
+    });
+
+    document.addEventListener('click', async (e) => {
+        if (!e.target.matches('.btn-delete-entry')) return;
+        const id = e.target.getAttribute('data-id');
+        const node = document.querySelector('[data-entry-id="' + id + '"]');
+        if (!node) return;
+        const text = node.querySelector('.conversation-content') ? node.querySelector('.conversation-content').innerText : '';
+        if (!confirm('Delete this history entry?')) return;
+
+        try {
+            const res = await fetch('/delete-history', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: parseInt(id)})
+            });
+            const j = await res.json();
+            if (res.ok && j.deleted) {
+                node.remove();
+                lastDeleted = {id: id, text: text};
+                showSnackbar('Entry deleted — You can undo');
+            } else {
+                alert('Failed to delete entry');
+            }
+        } catch (err) {
+            alert('Delete request failed: ' + err.message);
+        }
+    });
+
+    async function clearAllHistory() {
+        if (!confirm('Clear all history for your account? This cannot be undone.')) return;
+        try {
+            const res = await fetch('/clear-history', {method:'POST'});
+            const j = await res.json();
+            if (res.ok && j.cleared) {
+                location.reload();
+            } else {
+                alert('Failed to clear history');
+            }
+        } catch (err) {
+            alert('Clear request failed: ' + err.message);
+        }
+    }
+</script>
+
+{% endblock %}

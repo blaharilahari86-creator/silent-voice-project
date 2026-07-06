@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1 style="margin-bottom:20px;">
+    ✋ Sign Language Detection
+</h1>
+
+<div class="card">
+
+    <h2>Sign Language Camera</h2>
+
+    <p>
+        Use your browser camera to detect hand gestures.
+    </p>
+
+    <br>
+
+    <button id="startButton" onclick="startCamera()">Start Camera</button>
+    <button id="stopButton" onclick="stopCamera()" disabled>Stop Camera</button>
+
+    <br>
+
+    <div id="videoWrapper" style="display:none; position:relative;">
+        <video id="video" width="640" height="480" autoplay playsinline style="border:1px solid #ccc;border-radius:10px;"></video>
+        <div id="overlayBox" style="display:none; position:absolute; top:50%; left:50%; width:280px; height:280px; transform:translate(-50%, -50%); border:3px dashed #4caf50; border-radius:12px; pointer-events:none;"></div>
+    </div>
+    <canvas id="captureCanvas" width="320" height="320" style="display:none;"></canvas>
+
+    <br><br>
+    <div id="guideText" style="font-size:15px; color:#555; margin-bottom:10px; display:none;">
+        Place your hand inside the green box and keep it steady for stable recognition.
+    </div>
+
+    <div style="display:grid; gap:12px; margin-top:8px;">
+        <div style="font-size:18px; color:#333;">
+            <strong>Current Detected Gesture:</strong> <span id="currentGesture">Waiting...</span>
+        </div>
+        <div style="font-size:18px; color:#333;">
+            <strong>Confidence Percentage:</strong> <span id="confidenceValue">0%</span>
+        </div>
+        <div style="font-size:18px; color:#333;">
+            <strong>Live Recognized Text:</strong> <span id="recognizedText">Waiting for input...</span>
+        </div>
+    </div>
+    <div id="cameraStatus" style="margin-top:10px; color:#555;"></div>
+
+</div>
+
+<script>
+let video = document.getElementById('video');
+let captureCanvas = document.getElementById('captureCanvas');
+let captureContext = captureCanvas.getContext('2d');
+let stream = null;
+let predictInterval = null;
+let pendingLabel = 'Detecting...';
+let stableLabel = '';
+let stableConfidence = 0.0;
+let stableFrameCount = 0;
+let currentGesture = document.getElementById('currentGesture');
+let confidenceValue = document.getElementById('confidenceValue');
+let recognizedText = document.getElementById('recognizedText');
+let cameraStatus = document.getElementById('cameraStatus');
+const MIN_STABLE_FRAMES = 3;
+const MIN_CONFIDENCE = 0.55;
+
+async function startCamera(){
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'user',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        document.getElementById('startButton').disabled = true;
+        document.getElementById('stopButton').disabled = false;
+        document.getElementById('videoWrapper').style.display = 'inline-block';
+        document.getElementById('overlayBox').style.display = 'block';
+        document.getElementById('guideText').style.display = 'block';
+        cameraStatus.textContent = 'Camera started. Live detection is running.';
+
+        predictInterval = setInterval(captureAndPredict, 700);
+    } catch (err) {
+        cameraStatus.textContent = 'Camera error: ' + err.message;
+    }
+}
+
+function stopCamera(){
+    if (predictInterval) {
+        clearInterval(predictInterval);
+        predictInterval = null;
+    }
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    document.getElementById('videoWrapper').style.display = 'none';
+    document.getElementById('overlayBox').style.display = 'none';
+    document.getElementById('guideText').style.display = 'none';
+    cameraStatus.textContent = 'Camera stopped.';
+    document.getElementById('startButton').disabled = false;
+    document.getElementById('stopButton').disabled = true;
+    currentGesture.textContent = 'Waiting...';
+    confidenceValue.textContent = '0%';
+    recognizedText.textContent = 'Waiting for input...';
+    pendingLabel = 'Detecting...';
+    stableLabel = '';
+    stableConfidence = 0.0;
+    stableFrameCount = 0;
+}
+
+async function captureAndPredict(){
+    if (!stream || video.readyState < 2) {
+        return;
+    }
+
+    captureContext.clearRect(0, 0, captureCanvas.width, captureCanvas.height);
+
+    const roiSize = 280;
+    const videoWidth = video.videoWidth || video.clientWidth || 640;
+    const videoHeight = video.videoHeight || video.clientHeight || 480;
+    const sx = Math.max(0, (videoWidth - roiSize) / 2);
+    const sy = Math.max(0, (videoHeight - roiSize) / 2);
+
+    captureContext.drawImage(video, sx, sy, roiSize, roiSize, 0, 0, captureCanvas.width, captureCanvas.height);
+
+    let imageData = captureCanvas.toDataURL('image/png');
+
+    try {
+        let response = await fetch('/predict-sign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imageData })
+        });
+        let result = await response.json();
+
+        if (!response.ok) {
+            cameraStatus.textContent = 'Prediction error: ' + (result.error || 'Unknown');
+            return;
+        }
+
+        let chosen = (result.label && result.label !== 'Detecting...') ? result.label : 'Detecting...';
+        let conf = (typeof result.confidence === 'number') ? result.confidence : 0;
+
+        if (!chosen || chosen === 'Detecting...' || conf < MIN_CONFIDENCE) {
+            currentGesture.textContent = stableLabel || 'Waiting...';
+            confidenceValue.textContent = stableLabel ? Math.round(stableConfidence * 100) + '%' : '0%';
+            recognizedText.textContent = stableLabel ? stableLabel.replace(/_/g, ' ') : 'Waiting for input...';
+            return;
+        }
+
+        if (chosen === pendingLabel) {
+            stableFrameCount += 1;
+        } else {
+            pendingLabel = chosen;
+            stableFrameCount = 1;
+        }
+
+        if (stableFrameCount >= MIN_STABLE_FRAMES) {
+            stableLabel = pendingLabel;
+            stableConfidence = conf;
+            currentGesture.textContent = stableLabel.replace(/_/g, ' ');
+            confidenceValue.textContent = Math.round(stableConfidence * 100) + '%';
+            recognizedText.textContent = stableLabel.replace(/_/g, ' ');
+        } else {
+            currentGesture.textContent = stableLabel ? stableLabel.replace(/_/g, ' ') : 'Waiting...';
+            confidenceValue.textContent = stableLabel ? Math.round(stableConfidence * 100) + '%' : '0%';
+            recognizedText.textContent = stableLabel ? stableLabel.replace(/_/g, ' ') : 'Waiting for input...';
+        }
+    } catch (err) {
+        cameraStatus.textContent = 'Prediction request failed: ' + err.message;
+    }
+}
+
+</script>
+
+{% endblock %}

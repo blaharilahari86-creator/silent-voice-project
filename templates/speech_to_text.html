@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1 style="margin-bottom:20px;">
+    🎤 Speech to Text
+</h1>
+
+<div class="card">
+
+    <h2>Live Voice Recognition</h2>
+
+    <br>
+
+    <!-- LANGUAGE -->
+
+    <label>
+        Select Language:
+    </label>
+
+    <select id="language">
+
+        <option value="en-US">
+            English
+        </option>
+
+        <option value="hi-IN">
+            Hindi
+        </option>
+
+        <option value="te-IN">
+            Telugu
+        </option>
+
+        <option value="ta-IN">
+            Tamil
+        </option>
+
+    </select>
+
+    <br><br>
+
+    <!-- BUTTONS -->
+
+    <button onclick="startRecognition()">
+        Start
+    </button>
+
+    <button onclick="stopRecognition()">
+        Stop
+    </button>
+
+    <button onclick="clearText()">
+        Clear
+    </button>
+
+    <br><br>
+
+    <!-- OUTPUT -->
+
+    <textarea
+        id="output"
+        style="
+            width:100%;
+            height:250px;
+            font-size:20px;
+            padding:15px;
+            border-radius:10px;
+        "
+        placeholder="Your speech transcript will appear here..."
+    ></textarea>
+
+    <p id="status" style="margin-top:15px;color:#555;font-size:16px;"></p>
+
+</div>
+
+<script>
+
+let recognition;
+let isRecording = false;
+let finalTranscript = "";
+
+function getSpeechRecognition() {
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function startRecognition() {
+    const SpeechRecognition = getSpeechRecognition();
+    if (!SpeechRecognition) {
+        alert("Speech Recognition not supported in this browser. Use Chrome or Edge on a secure page.");
+        return;
+    }
+
+    if (recognition) {
+        try {
+            recognition.abort();
+        } catch (e) {
+            console.warn('Failed to abort existing recognition instance', e);
+        }
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.lang = document.getElementById("language").value;
+    finalTranscript = "";
+    document.getElementById("output").value = "";
+    document.getElementById("status").textContent = "Listening... Please speak clearly.";
+    isRecording = true;
+
+    try {
+        recognition.start();
+    } catch (e) {
+        console.error('SpeechRecognition start failed', e);
+        document.getElementById("status").textContent = "Could not start recognition. Check microphone permission.";
+        isRecording = false;
+        return;
+    }
+
+    recognition.onstart = function() {
+        document.getElementById("status").textContent = "Listening...";
+    };
+
+    recognition.onresult = function(event) {
+        let interimTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript.trim() + " ";
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+
+        document.getElementById("output").value = finalTranscript + interimTranscript;
+    };
+
+    recognition.onend = function() {
+        if (!isRecording) {
+            document.getElementById("status").textContent = "Stopped.";
+            return;
+        }
+
+        document.getElementById("status").textContent = "Listening again...";
+        setTimeout(() => {
+            try {
+                recognition.start();
+            } catch (e) {
+                console.error('SpeechRecognition restart failed', e);
+                document.getElementById("status").textContent = "Could not restart speech recognition.";
+                isRecording = false;
+            }
+        }, 250);
+    };
+
+    recognition.onerror = function(event) {
+        console.error('SpeechRecognition error:', event);
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            document.getElementById("status").textContent = "Microphone access denied. Allow microphone permission and reload.";
+            alert("Microphone access denied. Please allow microphone permission in your browser settings and reload the page.");
+            isRecording = false;
+            return;
+        }
+
+        if (event.error === "no-speech") {
+            document.getElementById("status").textContent = "No speech detected. Please speak again.";
+            return;
+        }
+
+        if (event.error === "audio-capture") {
+            document.getElementById("status").textContent = "No microphone detected. Check your device and try again.";
+            return;
+        }
+
+        document.getElementById("status").textContent = "Speech error: " + event.error;
+    };
+}
+
+function stopRecognition() {
+    isRecording = false;
+    document.getElementById("status").textContent = "Stopped.";
+
+    if (recognition) {
+        recognition.stop();
+    }
+
+    const finalText = document.getElementById("output").value;
+    if (finalText.trim() !== "") {
+        fetch('/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text: finalText })
+        })
+        .then(async response => {
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Save failed');
+            }
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById("status").textContent = "Text saved to history.";
+        })
+        .catch(error => {
+            document.getElementById("status").textContent = "Save error: " + error.message;
+        });
+    }
+}
+
+function clearText() {
+    finalTranscript = "";
+    document.getElementById("output").value = "";
+    document.getElementById("status").textContent = "";
+}
+
+</script>
+{% endblock %}

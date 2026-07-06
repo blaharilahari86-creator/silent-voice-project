@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Silent Voice</title>
+
+    <style>
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family: Arial;
+        }
+
+        body{
+            display:flex;
+            background:#f5f7fb;
+        }
+
+        /* SIDEBAR */
+
+        .sidebar{
+            width:250px;
+            height:100vh;
+            background:#0b1a3a;
+            color:white;
+            position:fixed;
+            padding-top:20px;
+        }
+
+        .sidebar h2{
+            text-align:center;
+            margin-bottom:40px;
+        }
+
+        .sidebar a{
+            display:block;
+            color:white;
+            text-decoration:none;
+            padding:15px 25px;
+            font-size:18px;
+        }
+
+        .sidebar a:hover{
+            background:#1e3c72;
+        }
+
+        /* MAIN CONTENT */
+
+        .main-content{
+            margin-left:250px;
+            width:100%;
+            padding:30px;
+        }
+
+        .card{
+            background:white;
+            padding:20px;
+            border-radius:15px;
+            margin-bottom:20px;
+            box-shadow:0px 2px 10px rgba(0,0,0,0.1);
+        }
+
+        button{
+            background:#2563eb;
+            color:white;
+            border:none;
+            padding:10px 20px;
+            border-radius:8px;
+            cursor:pointer;
+        }
+
+        button:hover{
+            background:#1d4ed8;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <!-- SIDEBAR -->
+
+    <div class="sidebar">
+
+        <h2>Silent Voice</h2>
+
+        <a href="/">🏠 Dashboard</a>
+
+        <a href="/speech-to-text">🎤 Speech to Text</a>
+
+        <a href="/text-to-speech">🔊 Text to Speech</a>
+
+        <a href="/translate-page">🌐 Translate</a>
+
+        <a href="/sign-language">✋ Sign Language</a>
+
+        <a href="/history-page">📜 History</a>
+
+        <hr style="border:0;height:1px;background:#555;margin:20px 0;">
+
+        {% if username %}
+            <p style="color:#aaa;padding:15px 25px;font-size:14px;">👤 {{ username }}</p>
+            <a href="/profile">👤 Profile</a>
+            <a href="/logout">🚪 Logout</a>
+        {% else %}
+            <a href="/login">🔓 Login</a>
+        {% endif %}
+
+    </div>
+
+    <!-- MAIN CONTENT -->
+
+    <div class="main-content">
+
+        {% block content %}
+
+        {% endblock %}
+
+    </div>
+
+</body>
+</html>

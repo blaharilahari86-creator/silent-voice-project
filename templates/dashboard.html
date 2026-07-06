@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .recent-activity {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin-top: 25px;
+    }
+    
+    .recent-activity h3 {
+        margin-top: 0;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .activity-item {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 8px 12px;
+        margin: 8px 0;
+        border-radius: 6px;
+        font-size: 13px;
+        border-left: 3px solid rgba(255, 255, 255, 0.5);
+    }
+    
+    .activity-time {
+        font-size: 11px;
+        opacity: 0.8;
+        font-weight: bold;
+    }
+    
+    .view-all-link {
+        text-align: center;
+        margin-top: 15px;
+    }
+    
+    .view-all-link a {
+        color: white;
+        text-decoration: none;
+        font-weight: bold;
+        padding: 8px 16px;
+        border: 2px solid white;
+        border-radius: 6px;
+        display: inline-block;
+        transition: all 0.3s ease;
+    }
+    
+    .view-all-link a:hover {
+        background: white;
+        color: #667eea;
+    }
+</style>
+
+<h1 style="margin-bottom:20px;">Dashboard</h1>
+
+<div class="card">
+    <h2>Welcome to Silent Voice</h2>
+    <p>Helping people communicate easily.</p>
+    
+    {% if not username %}
+        <p style="color:#e74c3c;margin-top:10px;"><strong>Please <a href="/login" style="color:#e74c3c;text-decoration:underline;">login or register</a> to use the app.</strong></p>
+    {% endif %}
+</div>
+
+{% if username %}
+
+<div style="display:grid;
+            grid-template-columns:repeat(2,1fr);
+            gap:20px;">
+
+    <!-- Speech to Text -->
+
+    <div class="card">
+        <h2>🎤 Speech to Text</h2>
+        <p>Convert speech into text.</p>
+
+        <br>
+
+        <a href="/speech-to-text">
+            <button>Open</button>
+        </a>
+    </div>
+
+    <!-- Text to Speech -->
+
+    <div class="card">
+        <h2>🔊 Text to Speech</h2>
+        <p>Convert text into voice.</p>
+
+        <br>
+
+        <a href="/text-to-speech">
+            <button>Open</button>
+        </a>
+    </div>
+
+    <!-- Translate -->
+
+    <div class="card">
+        <h2>🌐 Translate</h2>
+        <p>Translate text to different languages.</p>
+
+        <br>
+
+        <a href="/translate-page">
+            <button>Open</button>
+        </a>
+    </div>
+
+    <!-- Sign Language -->
+
+    <div class="card">
+        <h2>✋ Sign Language</h2>
+        <p>Detect hand gestures using camera.</p>
+
+        <br>
+
+        <a href="/sign-language">
+            <button>Open</button>
+        </a>
+    </div>
+
+</div>
+
+<!-- Recent Activity Section -->
+{% if history %}
+<div class="recent-activity">
+    <h3>📋 Recent Activity</h3>
+    
+    {% for item in history %}
+        <div class="activity-item">
+            <div>{{ item[2] }}</div>
+        </div>
+    {% endfor %}
+    
+    <div class="view-all-link">
+        <a href="/history-page">View Full History →</a>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+{% endblock %}
